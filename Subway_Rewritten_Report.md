@@ -1,117 +1,201 @@
-# Subway Franchise Sales Analysis (Rewritten)
+# 1. Introduction
+Subway is one of the largest fast-food franchise systems in the world, with thousands of stores run by individual operators. Because these stores operate in very different neighborhoods, with different demand levels and competitive pressure, yearly sales can vary a lot from location to location. That variation makes it useful to move beyond intuition and measure which factors are actually tied to stronger sales outcomes.
 
-## 1. Introduction
-Subway operates one of the largest franchise networks in fast food. Store performance differs widely across locations, so the company needs a practical way to estimate sales from local and operational inputs. This report analyzes data from 27 franchise locations using multiple linear regression.
+This report analyzes sales performance data from 27 Subway franchise locations. The analysis uses multivariate linear regression to test five candidate predictors of annual net sales: store size, inventory level, advertising expenditure, district demographics, and local competition. The purpose is practical. We want a model that not only explains historical sales patterns, but can also support planning decisions for current stores and new-store proposals.
 
-The objective is to identify which factors are statistically linked to annual net sales and to provide a usable prediction model for decisions on site selection, advertising spend, inventory planning, and store size.
+The results are intended for franchise owners and regional managers who need to decide where to open stores, how large those stores should be, how much inventory to hold, and how much to spend on advertising. By quantifying the relationship between these inputs and annual net sales, the model provides a consistent benchmark for comparing locations and evaluating trade-offs.
 
-## 2. Problem Statement
-Management asked two questions:
+# 2. Problem Statement
+Management requested a data-driven model to answer two central business questions:
 
-1. Which operational and demographic factors significantly affect annual net sales?
-2. Given a specific set of store and neighborhood characteristics, what annual sales level can be predicted?
+- Which combination of operational and demographic factors significantly affects annual net sales in Subway franchise stores?
+- Given a specific set of store and neighborhood characteristics, what level of annual sales should be predicted?
 
-### 2.1 Assumptions
-- The data represent one full fiscal year and are comparable across all 27 stores.
-- Relationships between SALES and the predictors are approximately linear.
-- Observations are independent (one row per store).
-- Monetary values are in thousands of dollars ($000s), and area is in thousands of square feet.
-- Advertising is treated as annual spend. In the new-store scenario, "$5,000" is interpreted as annual spend to match dataset scale.
+Answering these questions with a formal model helps shift decision-making from broad assumptions to evidence-based planning. The model is used to support choices in site selection, marketing investment, staffing and stocking strategy, and competitive positioning.
 
-## 3. Data Source
-The dataset is `Franchises.xlsx` and includes one record per franchise location (`n = 27`), combining internal reporting with district-level demographic information.
+## 2.1 Assumptions
+The analysis is based on the following assumptions:
 
-## 4. Data Description
-### 4.1 Variables
-- **SALES**: annual net sales ($000s), dependent variable.
-- **SQFT**: store size (000s sq ft).
-- **INVENTORY**: inventory value ($000s).
-- **ADVERTISING**: annual advertising spend ($000s).
-- **FAMILIES**: families in the district (000s).
-- **STORES**: number of competing stores in the district.
+- The sales records represent one full fiscal year and are comparable across all 27 stores.
+- The relationship between `SALES` and each predictor is approximately linear.
+- Observations are independent (one row corresponds to one distinct franchise location).
+- Monetary variables are expressed in thousands of dollars (`$000s`), and area is expressed in thousands of square feet.
+- Advertising values are treated as annual totals. In the scenario where the prompt mentions "$5,000 per month," the value is interpreted as `$5,000 per year` to match the observed dataset scale (`$2,500` to `$17,400` annually).
 
-### 4.2 Descriptive Statistics
-- SALES: mean 286.6, SD 192.1, min 0.5, median 341.0, max 570.0.
-- SQFT: mean 3.33, SD 2.01, min 0.5, median 3.5, max 8.6.
-- INVENTORY: mean 387.5, SD 191.2, min 102, median 382, max 788.
-- ADVERTISING: mean 8.10, SD 3.77, min 2.5, median 8.1, max 17.4.
-- FAMILIES: mean 9.69, SD 5.14, min 1.6, median 11.3, max 16.3.
-- STORES: mean 7.74, SD 4.90, min 0, median 8, max 15.
+# 3. Data Sources
+The dataset used in this report is `Franchises.xlsx`, provided by the operations team. It contains one observation per franchise location (`n = 27`) and six total variables. Sales values come from internal reporting systems, while district-level market context (for example, family counts and local store competition) comes from trade-area demographic data associated with each store.
 
-## 5. Methods
-### 5.1 Exploratory Linear Association
-Each predictor had a strong linear relationship with SALES in simple regression, all with `p < 0.001`:
-- SQFT: `r = 0.894`, `R² = 0.799`.
-- INVENTORY: `r = 0.946`, `R² = 0.894`.
-- ADVERTISING: `r = 0.914`, `R² = 0.835`.
-- FAMILIES: `r = 0.954`, `R² = 0.910`.
-- STORES: `r = -0.912`, `R² = 0.832`.
+# 4. Data Description
+The dataset includes one dependent variable and five predictors. All money values are shown in `$000s` (so a value of `1` corresponds to `$1,000`).
 
-### 5.2 Transformation Check
-A log-transformed dependent variable model (`ln(SALES)`) performed worse than the untransformed model:
-- `R²` decreased from `0.993` to `0.716`.
-- Shapiro-Wilk for residuals worsened (`p = 0.0002`).
+- `SALES`: annual net sales (`$000s`), the outcome to be predicted.
+- `SQFT`: store size (thousands of square feet).
+- `INVENTORY`: inventory value carried (`$000s`).
+- `ADVERTISING`: annual advertising spend (`$000s`).
+- `FAMILIES`: number of families in the sales district (thousands).
+- `STORES`: number of competing stores in the district.
 
-No transformation was retained in the final model.
+**Table 1. Descriptive statistics for all variables**
 
-### 5.3 Final Multivariate Model
+| Variable | n | Mean | Std Dev | Min | Median | Max |
+|---|---:|---:|---:|---:|---:|---:|
+| SALES ($000s) | 27 | 286.6 | 192.1 | 0.5 | 341.0 | 570.0 |
+| SQFT (000s) | 27 | 3.33 | 2.01 | 0.5 | 3.5 | 8.6 |
+| INVENTORY ($000s) | 27 | 387.5 | 191.2 | 102 | 382 | 788 |
+| ADVERTISING ($000s) | 27 | 8.10 | 3.77 | 2.5 | 8.1 | 17.4 |
+| FAMILIES (000s) | 27 | 9.69 | 5.14 | 1.6 | 11.3 | 16.3 |
+| STORES (count) | 27 | 7.74 | 4.90 | 0 | 8 | 15 |
 
-SALES = -18.86 + 16.20(SQFT) + 0.1746(INVENTORY) + 11.53(ADVERTISING) + 13.58(FAMILIES) - 5.311(STORES)
+Source: `Franchises.xlsx` (27 Subway franchise locations).
 
-Coefficient summary:
-- Intercept: -18.86 (`p = 0.538`).
-- SQFT: 16.20 (`p = 0.0002`, VIF 4.24).
-- INVENTORY: 0.1746 (`p = 0.0063`, VIF 10.12).
-- ADVERTISING: 11.53 (`p = 0.0002`, VIF 7.62).
-- FAMILIES: 13.58 (`p < 0.001`, VIF 6.91).
-- STORES: -5.311 (`p = 0.0052`, VIF 5.82).
+The spread in the data is substantial, especially for `SALES` (from `$500` to `$570,000`) and `INVENTORY` (from `$102,000` to `$788,000`). That variability reflects real differences in market size, store footprint, and operating strategy. Distribution checks indicate modest skewness and no strong need for transformation of predictors before fitting a linear model.
 
-### 5.4 Model Fit
-- ANOVA: `F(5, 21) = 611.6`, `p < 0.001`.
-- `R² = 0.9932`, Adjusted `R² = 0.9916`.
-- `RMSE = 14.76` ($000s).
+# 5. Methods
+## 5.1 Exploratory Analysis and Linear Association
+Before fitting the multivariate model, each predictor was evaluated against `SALES` using Pearson correlation (`r`) and simple linear regression. This step serves two purposes: it confirms expected directional relationships and helps identify variables with strong standalone explanatory value.
 
-Compared with the tested alternatives (log model and reduced 3-variable model), the full 5-variable model had the best performance.
+**Table 2. Simple linear regression results (each predictor vs. SALES)**
 
-### 5.5 Residual Diagnostics
-Residual-vs-fitted plots showed no strong systematic pattern. The Q-Q plot showed mild lower-tail deviation. Shapiro-Wilk `p = 0.037` is borderline but acceptable for this small-sample exploratory model.
+| Predictor | Slope | Pearson r | R² | p-value | Direction |
+|---|---:|---:|---:|---:|---|
+| SQFT | 85.39 | 0.894 | 0.799 | < 0.001 | Positive |
+| INVENTORY | 0.95 | 0.946 | 0.894 | < 0.001 | Positive |
+| ADVERTISING | 46.51 | 0.914 | 0.835 | < 0.001 | Positive |
+| FAMILIES | 35.64 | 0.954 | 0.910 | < 0.001 | Positive |
+| STORES | -35.79 | -0.912 | 0.832 | < 0.001 | Negative |
 
-## 6. Results
-### 6.1 Overall Model Significance
-The full model is statistically significant and explains 99.3% of the variation in SALES.
+All five predictors are individually significant (`p < 0.001`).
 
-### 6.2 Individual Predictor Effects
-All five predictors are statistically significant:
-- **FAMILIES**: +$13,580 per additional 1,000 families.
-- **SQFT**: +$16,200 per additional 1,000 sq ft.
-- **ADVERTISING**: +$11,530 per additional $1,000 annual spend.
-- **INVENTORY**: +$175 per additional $1,000 in inventory.
-- **STORES**: -$5,310 per additional competing store.
+**Figure 1:** Bivariate scatter plots with regression lines for each predictor versus `SALES`.
 
-### 6.3 Multicollinearity
-INVENTORY has `VIF = 10.12`, so its coefficient should be interpreted with caution because it overlaps with other operational variables.
+**Figure 3:** Correlation matrix showing strong inter-predictor relationships.
 
-### 6.4 Sales Prediction for New Store Scenario
-Inputs:
-- SQFT = 5
-- INVENTORY = 250
-- ADVERTISING = 5
-- FAMILIES = 5
-- STORES = 5
+Each predictor shows a strong linear relationship with sales. `FAMILIES` (`r = 0.954`), `INVENTORY` (`r = 0.946`), and `ADVERTISING` (`r = 0.914`) have the strongest positive associations. `STORES` is strongly negative (`r = -0.912`), consistent with reduced sales in more competitive districts. At the same time, strong predictor-to-predictor correlations indicate possible multicollinearity, which is addressed later with VIF diagnostics.
 
-Prediction:
+## 5.2 Variable Transformations
+A log-transformed dependent-variable model (`ln(SALES)`) was tested against the untransformed linear specification to evaluate whether transformation improved fit or residual behavior.
 
-`SALES = -18.86 + 16.20(5) + 0.1746(250) + 11.53(5) + 13.58(5) - 5.311(5) = 204.8`
+The log model performed worse on key criteria:
 
-Projected annual net sales: **$204,785**.
+- `R²` dropped from `0.993` (raw model) to `0.716`.
+- Shapiro-Wilk residual normality worsened (`p = 0.0002`).
+- Fewer predictors remained significant.
 
-If advertising increases from $5,000 to $10,000 annually (all else fixed), predicted sales increase by about **$57,865**.
+Predictor skewness values were also low (`|skew| < 0.5`), suggesting that transformation was unnecessary for this dataset. The final analysis therefore keeps the original linear scale for interpretability and superior model performance.
 
-## 7. Conclusion and Recommendations
-1. **Prioritize district demand.** FAMILIES is the strongest predictor.
-2. **Use advertising as a controllable input.** The model indicates a strong marginal sales response to additional spend.
-3. **Align store size with expected demand.** Larger store footprints are associated with higher sales.
-4. **Account for competitor density in site decisions.** More competing stores are associated with lower sales.
-5. **Manage inventory efficiently.** Inventory is significant but has a smaller marginal effect and multicollinearity risk.
+## 5.3 Multivariate Regression Model
+The final specification uses Ordinary Least Squares (OLS) with all five predictors:
 
-For the provided new-store profile, predicted annual sales are approximately **$204.8k**. Management should test scenarios with higher advertising spend and stronger district demand before final approval.
+`SALES = -18.86 + 16.20(SQFT) + 0.1746(INVENTORY) + 11.53(ADVERTISING) + 13.58(FAMILIES) - 5.311(STORES)`
+
+**Table 3. Multivariate coefficients, standard errors, and tests**
+
+| Variable | Coefficient | Std Error | t-stat | p-value | VIF | Significance |
+|---|---:|---:|---:|---:|---:|---|
+| Intercept | -18.86 | 30.15 | -0.626 | 0.538 | — | n.s. |
+| SQFT | 16.20 | 3.54 | 4.571 | 0.0002 | 4.24 | *** |
+| INVENTORY | 0.1746 | 0.0576 | 3.032 | 0.0063 | 10.12 | ** |
+| ADVERTISING | 11.53 | 2.53 | 4.552 | 0.0002 | 7.62 | *** |
+| FAMILIES | 13.58 | 1.77 | 7.671 | < 0.001 | 6.91 | *** |
+| STORES | -5.311 | 1.71 | -3.114 | 0.0052 | 5.82 | ** |
+
+`*** p < .001`, `** p < .01`, `* p < .05`.
+
+`INVENTORY` has `VIF = 10.12`, at the conventional threshold for potential multicollinearity concerns.
+
+## 5.4 Model Fit and ANOVA
+Global model significance and fit were assessed using ANOVA and comparative fit metrics.
+
+**Table 4. ANOVA (multivariate full model)**
+
+| Source | Sum of Squares | df | Mean Square | F / p-value |
+|---|---:|---:|---:|---|
+| Regression | 668,099 | 5 | 133,620 | 611.6 / < 0.001 |
+| Residual | 4,573 | 21 | 217.8 | — |
+| Total | 672,672 | 26 | — | — |
+
+Overall model test: `F(5, 21) = 611.6`, `p < 0.0001`.
+
+**Table 5. Model comparison (full vs alternatives)**
+
+| Metric | Full Model | Log(SALES) | 3-Var Model | Recommendation |
+|---|---:|---:|---:|---|
+| R² | 0.9932 | 0.7156 | 0.9774 | Full Model |
+| Adj. R² | 0.9916 | 0.6479 | 0.9744 | Full Model |
+| F-statistic | 611.6*** | 10.57*** | 331.5*** | Full Model |
+| RMSE ($000s) | 14.76 | — | 26.1 | Full Model |
+| Shapiro-Wilk p | 0.037 | 0.0002 | — | Acceptable |
+
+The five-variable model is strongest across every fit metric.
+
+## 5.5 Residual Diagnostics
+Residual diagnostics were used to evaluate OLS assumptions:
+
+1. Residuals vs. fitted values (linearity and constant variance).
+2. Normal Q-Q plot (error normality).
+3. Shapiro-Wilk test (`W = 0.919`, `p = 0.037`).
+
+**Figure 2:** Regression diagnostics panel (actual vs predicted, residuals vs fitted, Q-Q).
+
+The residual plot shows no obvious pattern, supporting linearity and approximate homoscedasticity. The Q-Q plot shows minor lower-tail deviation, consistent with the borderline Shapiro-Wilk result. Given the small sample (`n = 27`), this is a manageable departure and does not materially change the practical interpretation of model results.
+
+# 6. Results
+## 6.1 Overall Model Significance (F-test)
+The model is highly significant overall: `F(5, 21) = 611.6`, `p < 0.0001`. Together, the predictors explain a large share of sales variation. The model explains `R² = 0.9932` (99.3%) of variance in annual sales, with adjusted `R² = 0.9916`, indicating strong performance even after accounting for model complexity. `RMSE = $14,760`.
+
+## 6.2 Individual Predictors (t-tests)
+All predictors are significant at the 1% level or better.
+
+- **FAMILIES** (`t = 7.671`, `p < 0.001`): strongest predictor. An additional 1,000 families is associated with about `$13,580` in annual sales.
+- **SQFT** (`t = 4.571`, `p < 0.001`): each additional 1,000 sq ft is associated with about `$16,200` in annual sales.
+- **ADVERTISING** (`t = 4.552`, `p < 0.001`): each additional `$1,000` in annual advertising is associated with about `$11,530` in annual sales.
+- **INVENTORY** (`t = 3.032`, `p < 0.01`): each additional `$1,000` in inventory is associated with about `$175` in sales.
+- **STORES** (`t = -3.114`, `p < 0.01`): each additional competing store is associated with about `$5,310` lower annual sales.
+
+**Figure 4:** Coefficient plot and variance inflation factors.
+
+## 6.3 Multicollinearity
+VIF diagnostics indicate elevated collinearity across predictors, with `INVENTORY` highest at `10.12`. This means part of the inventory signal overlaps with related operational variables such as store size and advertising. The inventory effect remains significant (`p = 0.006`), but interpretation should focus on direction and practical role rather than treating that coefficient as fully independent. The other predictors have VIF values between `4.2` and `7.6`, elevated but still workable in a high-fit operational model.
+
+## 6.4 Sales Prediction for New Store
+The fitted model was applied to the management scenario:
+
+- District families: 5,000 (`FAMILIES = 5`)
+- Store size: 5,000 sq ft (`SQFT = 5`)
+- Annual advertising: `$5,000` (`ADVERTISING = 5`)
+- Inventory: `$250,000` (`INVENTORY = 250`)
+- Competing stores: 5 (`STORES = 5`)
+
+**Table 6. New-store inputs and prediction**
+
+| Variable | Input Value | Model Unit | Description |
+|---|---:|---|---|
+| SQFT | 5 | 000s sq ft | 5,000 sq ft store |
+| INVENTORY | 250 | $000s | $250,000 inventory |
+| ADVERTISING | 5 | $000s/year | $5,000 annual advertising |
+| FAMILIES | 5 | 000s families | 5,000 families in district |
+| STORES | 5 | count | 5 competing stores |
+
+Projected annual sales: **`$204,785`**.
+
+Substitution into the model:
+
+`SALES = -18.86 + 16.20(5) + 0.1746(250) + 11.53(5) + 13.58(5) - 5.311(5)`
+
+`SALES = -18.86 + 81.0 + 43.7 + 57.6 + 67.9 - 26.6 = 204.8 ($204,785)`
+
+This prediction reflects a relatively small advertising budget and a district with only 5,000 families. The model also provides an immediate scenario check: if annual advertising increases to `$10,000` (holding other inputs constant), predicted sales rise to about `$262,650`, an increase of approximately `$57,865`.
+
+# 7. Conclusion and Recommendations
+The multivariate model explains more than 99% of observed variation in annual franchise sales and identifies all five predictors as statistically significant. For this dataset, demand context (`FAMILIES`), operating scale (`SQFT`), and marketing spend (`ADVERTISING`) are especially important, while competition (`STORES`) has a clear negative association and inventory contributes a smaller but meaningful positive signal.
+
+Based on the model outputs, the following actions are recommended:
+
+- **Prioritize demand-rich districts.** `FAMILIES` is the strongest signal in the model. Site screening should heavily weight local family counts.
+- **Use advertising strategically.** The estimated coefficient implies substantial marginal sales impact per additional advertising dollar within the observed range.
+- **Match footprint to market potential.** Larger stores are associated with higher annual sales, likely through higher throughput and broader assortment capacity.
+- **Incorporate competitor density explicitly.** Additional nearby stores are associated with lower sales; competitor mapping should be part of market entry decisions.
+- **Treat inventory as a supporting lever, not the main driver.** Inventory is significant, but effect size is smaller and partly shared with other operational factors.
+- **For the specified new-store profile, plan around a base case near `$204,785` annual sales.** Before approval, run sensitivity checks on advertising budget and district size, since both materially affect projected outcomes.
+
+In operational terms, the model is a practical planning tool for benchmarking existing stores, evaluating proposed sites, and quantifying trade-offs in spend and capacity decisions. As additional store-year observations become available, the model should be re-estimated periodically to keep coefficients current and improve forecast reliability.
